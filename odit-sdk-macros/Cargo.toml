@@ -1,0 +1,9 @@
+[package]
+name = "odit-sdk-macros"
+version = "0.1.0"
+edition = "2021"
+description = "Zero-dependency proc-macros for authoring ODIT WASM plugins in Rust"
+license = "MIT"
+
+[lib]
+proc-macro = true

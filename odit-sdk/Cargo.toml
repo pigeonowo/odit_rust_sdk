@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Idiomatic Rust SDK for authoring sandboxed WebAssembly plugins for Onyx Editor (odit)"
 license = "MIT"
+repository = "https://github.com/pigeonowo/odit_rust_sdk"
 
 [dependencies]
 odit-sdk-macros = { path = "../odit-sdk-macros" }

@@ -23,7 +23,7 @@ Write sandboxed WebAssembly (`.wasm`) plugins for **Onyx Editor (`odit`)** in id
    crate-type = ["cdylib"]
 
    [dependencies]
-   odit-sdk = { path = "/home/jonas/projects/odit_rust_sdk/odit-sdk" }
+   odit-sdk = { git = "https://github.com/pigeonowo/odit_rust_sdk" }
    ```
 
 3. Build & install the included example plugin:

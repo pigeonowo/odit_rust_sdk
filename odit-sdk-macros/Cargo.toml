@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Zero-dependency proc-macros for authoring ODIT WASM plugins in Rust"
 license = "MIT"
+repository = "https://github.com/pigeonowo/odit_rust_sdk"
 
 [lib]
 proc-macro = true

@@ -65,7 +65,7 @@ pub mod prelude {
         SettingKind, StreamMask, TableRowFlags, TextFlags, ThemeColor, WidgetState,
     };
     pub use crate::event::Event;
-    pub use crate::{debug, editor, host, lsp, process, ui, workspace};
+    pub use crate::{debug, editor, host, lsp, process, storage, ui, workspace};
     pub use crate::{log_error, log_info, log_warn, notify, odit_plugin, text, Plugin};
 }
 
@@ -165,6 +165,14 @@ pub mod host {
         unsafe { abi::host_set_clipboard(text.as_ptr() as u32, text.len() as u32) }
     }
 
+    pub fn get_clipboard() -> Option<String> {
+        query_string(|ptr, cap| unsafe { abi::host_get_clipboard(ptr, cap) })
+    }
+
+    pub fn open_url(url: &str) -> bool {
+        unsafe { abi::host_open_url(url.as_ptr() as u32, url.len() as u32) >= 0 }
+    }
+
     pub fn register_setting(key: &str, label: &str, kind: SettingKind, default_val: &str) -> u32 {
         unsafe {
             abi::host_register_setting(
@@ -213,6 +221,32 @@ pub mod host {
     }
 }
 
+/// Plugin-scoped global storage (`~/.config/odit/plugin_data/<plugin_id>/`).
+pub mod storage {
+    use super::*;
+
+    pub fn read(key: &str) -> Option<String> {
+        query_string(|ptr, cap| unsafe {
+            abi::storage_read(key.as_ptr() as u32, key.len() as u32, ptr, cap)
+        })
+    }
+
+    pub fn write(key: &str, data: &str) -> bool {
+        unsafe {
+            abi::storage_write(
+                key.as_ptr() as u32,
+                key.len() as u32,
+                data.as_ptr() as u32,
+                data.len() as u32,
+            ) >= 0
+        }
+    }
+
+    pub fn delete(key: &str) -> bool {
+        unsafe { abi::storage_delete(key.as_ptr() as u32, key.len() as u32) >= 0 }
+    }
+}
+
 // =============================================================================
 // B. Workspace, Editor & LSP Queries
 // =============================================================================
@@ -252,6 +286,18 @@ pub mod workspace {
             abi::workspace_find_files(ext.as_ptr() as u32, ext.len() as u32, ptr, cap)
         })
     }
+
+    pub fn file_exists(rel_path: &str) -> bool {
+        unsafe { abi::workspace_file_exists(rel_path.as_ptr() as u32, rel_path.len() as u32) != 0 }
+    }
+
+    pub fn delete_file(rel_path: &str) -> bool {
+        unsafe { abi::workspace_delete_file(rel_path.as_ptr() as u32, rel_path.len() as u32) >= 0 }
+    }
+
+    pub fn mkdir(rel_path: &str) -> bool {
+        unsafe { abi::workspace_mkdir(rel_path.as_ptr() as u32, rel_path.len() as u32) >= 0 }
+    }
 }
 
 pub mod editor {
@@ -290,6 +336,37 @@ pub mod editor {
 
     pub fn set_cursor(line: i32, col: i32) {
         unsafe { abi::editor_set_cursor(line, col) }
+    }
+
+    pub fn insert_text(text: &str) -> bool {
+        unsafe { abi::editor_insert_text(text.as_ptr() as u32, text.len() as u32) >= 0 }
+    }
+
+    pub fn selection() -> Option<String> {
+        query_string(|ptr, cap| unsafe { abi::editor_get_selection(ptr, cap) })
+    }
+
+    pub fn replace_range(
+        start_line: i32,
+        start_col: i32,
+        end_line: i32,
+        end_col: i32,
+        text: &str,
+    ) -> bool {
+        unsafe {
+            abi::editor_replace_range(
+                start_line,
+                start_col,
+                end_line,
+                end_col,
+                text.as_ptr() as u32,
+                text.len() as u32,
+            ) >= 0
+        }
+    }
+
+    pub fn save() -> bool {
+        unsafe { abi::editor_save() >= 0 }
     }
 
     pub fn set_gutter_marker(path: &str, line: i32, kind: GutterMarkerKind, rgba: u32) {
@@ -385,6 +462,12 @@ pub mod process {
 
     pub fn kill(handle: u32) -> i32 {
         unsafe { abi::proc_kill(handle) }
+    }
+
+    /// Starts an async HTTP GET request; poll & read the body using [`poll`] and [`read`].
+    pub fn http_fetch(url: &str) -> Option<u32> {
+        let h = unsafe { abi::http_fetch(url.as_ptr() as u32, url.len() as u32) };
+        if h != 0 { Some(h) } else { None }
     }
 
     pub fn compiler_build(entry: &str, target: BuildTarget, flags: BuildFlags) -> u32 {

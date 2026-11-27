@@ -2,13 +2,13 @@
 
 Write sandboxed WebAssembly (`.wasm`) plugins for **Onyx Editor (`odit`)** in idiomatic Rust — **zero external dependencies**, fast offline builds, and full Host ABI v1.0.0 coverage.
 
-## Features
+## Features (ABI v1.1.0)
 
 - **`#[odit_plugin(...)]` proc-macro** (`odit-sdk-macros`, zero deps): generates the JSON manifest and automatically exports all 9 required ODIT WASM ABI symbols (`_initialize`, `odit_abi_version`, `odit_alloc`, `odit_free`, `odit_plugin_manifest`, `odit_plugin_init`, `odit_plugin_shutdown`, `odit_plugin_event`, `odit_plugin_render`).
 - **Typed `Event<'a>` enum:** `ActiveFileChanged`, `BufferModified`, `CursorMoved`, `DiagnosticsUpdated`, `SymbolsUpdated`, `Command`, `DebugStateChanged`, `KeyInput`, `WorkspaceChanged`.
-- **Safe Immediate-Mode UI & Layout:** `ui::VStack`, `ui::card`, `ui::scroll_area`, `ui::clipped`, `ui::table`, `ui::on_click`, `ui::input_text`, `ui::dropdown`, `ui::Texture`, `ui::Sound` (`Sound::load_memory(include_bytes!(...), ".mp3")`).
+- **Safe Immediate-Mode UI & Layout:** `ui::VStack`, `ui::HStack`, `ui::card`, `ui::scroll_area`, `ui::clipped`, `ui::table`, `ui::table_row_y`, `ui::on_click`, `ui::input_text`, `ui::dropdown`, `ui::checkbox`, `ui::slider_f32`, `ui::draw_text_wrapped`, `ui::tooltip`, `ui::scale`, `WidgetState::is_clicked / is_double_clicked / is_hovered`, `ui::Texture` (`Texture::load_memory`), `ui::Sound` (`Sound::load_memory`).
 - **Declarative Macros:** `log_info!`, `log_warn!`, `log_error!`, `notify!`, `text!`.
-- **Full Host API Coverage:** `host` (commands, clipboard, `Ctrl+,` settings), `editor`, `workspace`, `lsp`, `process`, and `debug`.
+- **Full Host API Coverage:** `host` (commands, clipboard get/set, `open_url`, `Ctrl+,` settings), `storage` (global per-plugin persistence), `editor` (`insert_text`, `selection`, `replace_range`, `save`), `workspace` (`file_exists`, `delete_file`, `mkdir`), `lsp`, `process` (including async `http_fetch`), and `debug`.
 
 ## Quick Start
 

@@ -8,6 +8,16 @@ pub fn theme_color(role: ThemeColor) -> u32 {
 }
 
 #[inline]
+pub fn scale() -> f32 {
+    unsafe { abi::ui_get_scale() }
+}
+
+#[inline]
+pub fn table_row_y() -> f32 {
+    unsafe { abi::ui_table_get_row_y() }
+}
+
+#[inline]
 pub fn measure_text(text: &str, font_size: f32, flags: TextFlags) -> f32 {
     unsafe { abi::ui_measure_text(text.as_ptr() as u32, text.len() as u32, font_size, flags.bits()) }
 }
@@ -72,6 +82,84 @@ pub fn draw_text(x: f32, y: f32, text: &str, font_size: f32, rgba: u32, flags: T
             flags.bits(),
         )
     }
+}
+
+#[inline]
+pub fn draw_text_wrapped(
+    x: f32,
+    y: f32,
+    max_w: f32,
+    text: &str,
+    font_size: f32,
+    rgba: u32,
+    flags: TextFlags,
+) -> f32 {
+    if text.is_empty() {
+        return 0.0;
+    }
+    unsafe {
+        abi::ui_draw_text_wrapped(
+            x,
+            y,
+            max_w,
+            text.as_ptr() as u32,
+            text.len() as u32,
+            font_size,
+            rgba,
+            flags.bits(),
+        )
+    }
+}
+
+#[inline]
+pub fn checkbox(id: u32, x: f32, y: f32, label: &str, checked: &mut bool) -> WidgetState {
+    let mut b: u8 = if *checked { 1 } else { 0 };
+    let st = WidgetState(unsafe {
+        abi::ui_checkbox(
+            id,
+            x,
+            y,
+            label.as_ptr() as u32,
+            label.len() as u32,
+            &mut b as *mut u8 as u32,
+        )
+    });
+    *checked = b != 0;
+    st
+}
+
+#[inline]
+pub fn slider_f32(
+    id: u32,
+    x: f32,
+    y: f32,
+    w: f32,
+    label: &str,
+    val: &mut f32,
+    min_v: f32,
+    max_v: f32,
+) -> WidgetState {
+    WidgetState(unsafe {
+        abi::ui_slider_f32(
+            id,
+            x,
+            y,
+            w,
+            label.as_ptr() as u32,
+            label.len() as u32,
+            val as *mut f32 as u32,
+            min_v,
+            max_v,
+        )
+    })
+}
+
+#[inline]
+pub fn tooltip(text: &str) {
+    if text.is_empty() {
+        return;
+    }
+    unsafe { abi::ui_tooltip(text.as_ptr() as u32, text.len() as u32) }
 }
 
 #[inline]
@@ -324,6 +412,40 @@ impl VStack {
     }
 }
 
+/// Simple horizontal flow layout helper (companion to [`VStack`]).
+#[derive(Debug, Clone, Copy)]
+pub struct HStack {
+    pub x: f32,
+    pub y: f32,
+    pub h: f32,
+    pub gap: f32,
+}
+
+impl HStack {
+    #[inline]
+    pub const fn new(x: f32, y: f32, h: f32, gap: f32) -> Self {
+        Self { x, y, h, gap }
+    }
+
+    #[inline]
+    pub fn next(&mut self, w: f32) -> f32 {
+        let cur = self.x;
+        self.x += w + self.gap;
+        cur
+    }
+
+    #[inline]
+    pub fn spacer(&mut self, w: f32) {
+        self.x += w;
+    }
+
+    #[inline]
+    pub fn button(&mut self, id: u32, w: f32, label: &str, style: ButtonFlags) -> WidgetState {
+        let x = self.next(w);
+        button(id, x, self.y, w, self.h, label, style)
+    }
+}
+
 /// Host-managed GPU texture handle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Texture(pub u32);
@@ -331,6 +453,19 @@ pub struct Texture(pub u32);
 impl Texture {
     pub fn load(rel_path: &str) -> Option<Self> {
         let h = unsafe { abi::ui_texture_load(rel_path.as_ptr() as u32, rel_path.len() as u32) };
+        if h != 0 { Some(Self(h)) } else { None }
+    }
+
+    /// Loads a PNG/JPG/BMP/GIF texture directly from embedded bytes (`include_bytes!("icon.png")`).
+    pub fn load_memory(bytes: &[u8], ext: &str) -> Option<Self> {
+        let h = unsafe {
+            abi::ui_texture_load_memory(
+                bytes.as_ptr() as u32,
+                bytes.len() as u32,
+                ext.as_ptr() as u32,
+                ext.len() as u32,
+            )
+        };
         if h != 0 { Some(Self(h)) } else { None }
     }
 

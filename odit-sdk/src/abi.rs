@@ -3,7 +3,7 @@
 use core::ops::{BitAnd, BitOr, BitOrAssign};
 
 pub const ABI_VERSION_MAJOR: u32 = 1;
-pub const ABI_VERSION_MINOR: u32 = 0;
+pub const ABI_VERSION_MINOR: u32 = 1;
 pub const ABI_VERSION_PATCH: u32 = 0;
 pub const ABI_VERSION: u32 =
     (ABI_VERSION_MAJOR << 16) | (ABI_VERSION_MINOR << 8) | ABI_VERSION_PATCH;
@@ -194,6 +194,16 @@ define_bitflags!(WidgetState {
     FOCUSED = 1 << 6;
 });
 
+impl WidgetState {
+    #[inline] pub const fn is_hovered(self) -> bool { self.contains(Self::HOVERED) }
+    #[inline] pub const fn is_active(self) -> bool { self.contains(Self::ACTIVE) }
+    #[inline] pub const fn is_clicked(self) -> bool { self.contains(Self::CLICKED) }
+    #[inline] pub const fn is_double_clicked(self) -> bool { self.contains(Self::DOUBLE_CLICKED) }
+    #[inline] pub const fn is_changed(self) -> bool { self.contains(Self::CHANGED) }
+    #[inline] pub const fn is_submitted(self) -> bool { self.contains(Self::SUBMITTED) }
+    #[inline] pub const fn is_focused(self) -> bool { self.contains(Self::FOCUSED) }
+}
+
 define_bitflags!(TableRowFlags {
     SELECTED = 1 << 0;
     MUTED = 1 << 1;
@@ -363,6 +373,11 @@ extern "C" {
     pub fn host_execute_command(id_ptr: u32, id_len: u32, arg_ptr: u32, arg_len: u32) -> i32;
     pub fn host_spawn_plugin(plugin_id_ptr: u32, plugin_id_len: u32) -> u32;
     pub fn host_set_clipboard(text_ptr: u32, text_len: u32);
+    pub fn host_get_clipboard(out_ptr: u32, out_cap: u32) -> i32;
+    pub fn host_open_url(url_ptr: u32, url_len: u32) -> i32;
+    pub fn storage_read(key_ptr: u32, key_len: u32, out_ptr: u32, out_cap: u32) -> i32;
+    pub fn storage_write(key_ptr: u32, key_len: u32, data_ptr: u32, data_len: u32) -> i32;
+    pub fn storage_delete(key_ptr: u32, key_len: u32) -> i32;
     pub fn host_register_setting(
         key_ptr: u32,
         key_len: u32,
@@ -380,6 +395,7 @@ extern "C" {
     pub fn ui_pop_clip();
     pub fn ui_measure_text(text_ptr: u32, text_len: u32, font_size: f32, flags: u32) -> f32;
     pub fn ui_get_theme_color(role: u32) -> u32;
+    pub fn ui_get_scale() -> f32;
     pub fn ui_draw_rect(
         x: f32,
         y: f32,
@@ -417,6 +433,16 @@ extern "C" {
         rgba: u32,
         flags: u32,
     );
+    pub fn ui_draw_text_wrapped(
+        x: f32,
+        y: f32,
+        max_w: f32,
+        text_ptr: u32,
+        text_len: u32,
+        font_size: f32,
+        rgba: u32,
+        flags: u32,
+    ) -> f32;
     pub fn ui_pill(
         x: f32,
         y: f32,
@@ -458,6 +484,26 @@ extern "C" {
         items_len: u32,
         selected_idx: i32,
     ) -> i32;
+    pub fn ui_checkbox(
+        id: u32,
+        x: f32,
+        y: f32,
+        label_ptr: u32,
+        label_len: u32,
+        checked_ptr: u32,
+    ) -> u32;
+    pub fn ui_slider_f32(
+        id: u32,
+        x: f32,
+        y: f32,
+        w: f32,
+        label_ptr: u32,
+        label_len: u32,
+        val_ptr: u32,
+        min_v: f32,
+        max_v: f32,
+    ) -> u32;
+    pub fn ui_tooltip(text_ptr: u32, text_len: u32);
     pub fn ui_scroll_area_begin(
         id: u32,
         x: f32,
@@ -481,7 +527,9 @@ extern "C" {
     );
     pub fn ui_table_row(row_id: u32, cells_ptr: u32, cells_len: u32, flags: u32) -> u32;
     pub fn ui_table_end();
+    pub fn ui_table_get_row_y() -> f32;
     pub fn ui_texture_load(path_ptr: u32, path_len: u32) -> u32;
+    pub fn ui_texture_load_memory(data_ptr: u32, data_len: u32, ext_ptr: u32, ext_len: u32) -> u32;
     pub fn ui_texture_unload(handle: u32);
     pub fn ui_draw_texture(handle: u32, x: f32, y: f32, w: f32, h: f32, tint_rgba: u32);
     pub fn audio_load(path_ptr: u32, path_len: u32) -> u32;
@@ -510,6 +558,9 @@ extern "C" {
         data_len: u32,
     ) -> i32;
     pub fn workspace_find_files(ext_ptr: u32, ext_len: u32, out_ptr: u32, out_cap: u32) -> i32;
+    pub fn workspace_file_exists(rel_path_ptr: u32, rel_path_len: u32) -> u32;
+    pub fn workspace_delete_file(rel_path_ptr: u32, rel_path_len: u32) -> i32;
+    pub fn workspace_mkdir(rel_path_ptr: u32, rel_path_len: u32) -> i32;
 
     pub fn editor_get_active_path(out_ptr: u32, out_cap: u32) -> i32;
     pub fn editor_get_buffer_len() -> i32;
@@ -525,6 +576,17 @@ extern "C" {
         rgba: u32,
     );
     pub fn editor_clear_gutter_markers(kind: u32);
+    pub fn editor_insert_text(text_ptr: u32, text_len: u32) -> i32;
+    pub fn editor_get_selection(out_ptr: u32, out_cap: u32) -> i32;
+    pub fn editor_replace_range(
+        start_line: i32,
+        start_col: i32,
+        end_line: i32,
+        end_col: i32,
+        text_ptr: u32,
+        text_len: u32,
+    ) -> i32;
+    pub fn editor_save() -> i32;
 
     pub fn ast_get_symbols(path_ptr: u32, path_len: u32, out_ptr: u32, out_cap: u32) -> i32;
     pub fn ast_get_references(
@@ -538,7 +600,7 @@ extern "C" {
     pub fn ast_get_diagnostics(path_ptr: u32, path_len: u32, out_ptr: u32, out_cap: u32) -> i32;
     pub fn docs_search(query_ptr: u32, query_len: u32, out_ptr: u32, out_cap: u32) -> i32;
 
-    // D. Process Execution & Compiler / WAT Disassembly
+    // D. Process Execution, Async HTTP & Compiler / WAT Disassembly
     pub fn proc_spawn(
         cmd_ptr: u32,
         cmd_len: u32,
@@ -551,6 +613,7 @@ extern "C" {
     pub fn proc_read_output(handle: u32, stream_mask: u32, out_ptr: u32, out_cap: u32) -> i32;
     pub fn proc_write_input(handle: u32, data_ptr: u32, data_len: u32) -> i32;
     pub fn proc_kill(handle: u32) -> i32;
+    pub fn http_fetch(url_ptr: u32, url_len: u32) -> u32;
     pub fn compiler_build(entry_ptr: u32, entry_len: u32, target: u32, flags: u32) -> u32;
     pub fn compiler_get_function_wat(
         file_ptr: u32,
@@ -581,6 +644,11 @@ pub mod stubs {
     pub unsafe fn host_execute_command(_: u32, _: u32, _: u32, _: u32) -> i32 { 0 }
     pub unsafe fn host_spawn_plugin(_: u32, _: u32) -> u32 { 0 }
     pub unsafe fn host_set_clipboard(_: u32, _: u32) {}
+    pub unsafe fn host_get_clipboard(_: u32, _: u32) -> i32 { 0 }
+    pub unsafe fn host_open_url(_: u32, _: u32) -> i32 { 0 }
+    pub unsafe fn storage_read(_: u32, _: u32, _: u32, _: u32) -> i32 { 0 }
+    pub unsafe fn storage_write(_: u32, _: u32, _: u32, _: u32) -> i32 { 0 }
+    pub unsafe fn storage_delete(_: u32, _: u32) -> i32 { 0 }
     pub unsafe fn host_register_setting(_: u32, _: u32, _: u32, _: u32, _: u32, _: u32, _: u32) -> u32 { 0 }
     pub unsafe fn host_get_setting(_: u32, _: u32, _: u32, _: u32) -> i32 { 0 }
     pub unsafe fn host_set_setting(_: u32, _: u32, _: u32, _: u32) -> i32 { 0 }
@@ -588,21 +656,28 @@ pub mod stubs {
     pub unsafe fn ui_pop_clip() {}
     pub unsafe fn ui_measure_text(_: u32, len: u32, font_size: f32, _: u32) -> f32 { len as f32 * font_size * 0.6 }
     pub unsafe fn ui_get_theme_color(_: u32) -> u32 { 0xCDD6_F4FF }
+    pub unsafe fn ui_get_scale() -> f32 { 1.0 }
     pub unsafe fn ui_draw_rect(_: f32, _: f32, _: f32, _: f32, _: f32, _: u32, _: u32, _: f32) {}
     pub unsafe fn ui_draw_line(_: f32, _: f32, _: f32, _: f32, _: f32, _: u32) {}
     pub unsafe fn ui_draw_arrow(_: f32, _: f32, _: f32, _: f32, _: f32, _: f32, _: u32) {}
     pub unsafe fn ui_draw_circle(_: f32, _: f32, _: f32, _: u32, _: u32, _: f32) {}
     pub unsafe fn ui_draw_text(_: f32, _: f32, _: u32, _: u32, _: f32, _: u32, _: u32) {}
+    pub unsafe fn ui_draw_text_wrapped(_: f32, _: f32, _: f32, _: u32, _: u32, fs: f32, _: u32, _: u32) -> f32 { fs + 4.0 }
     pub unsafe fn ui_pill(_: f32, _: f32, _: u32, len: u32, _: u32, _: u32) -> f32 { len as f32 * 8.0 + 14.0 }
     pub unsafe fn ui_button(_: u32, _: f32, _: f32, _: f32, _: f32, _: u32, _: u32, _: u32) -> u32 { 0 }
     pub unsafe fn ui_input(_: u32, _: f32, _: f32, _: f32, _: f32, _: u32, _: u32, _: u32, _: u32, _: u32, _: u32) -> u32 { 0 }
     pub unsafe fn ui_dropdown(_: u32, _: f32, _: f32, _: f32, _: f32, _: u32, _: u32, sel: i32) -> i32 { sel }
+    pub unsafe fn ui_checkbox(_: u32, _: f32, _: f32, _: u32, _: u32, _: u32) -> u32 { 0 }
+    pub unsafe fn ui_slider_f32(_: u32, _: f32, _: f32, _: f32, _: u32, _: u32, _: u32, _: f32, _: f32) -> u32 { 0 }
+    pub unsafe fn ui_tooltip(_: u32, _: u32) {}
     pub unsafe fn ui_scroll_area_begin(_: u32, _: f32, _: f32, _: f32, _: f32, _: f32, _: u32) {}
     pub unsafe fn ui_scroll_area_end() {}
     pub unsafe fn ui_table_begin(_: u32, _: f32, _: f32, _: f32, _: f32, _: u32, _: u32, _: u32, _: u32) {}
     pub unsafe fn ui_table_row(_: u32, _: u32, _: u32, _: u32) -> u32 { 0 }
     pub unsafe fn ui_table_end() {}
+    pub unsafe fn ui_table_get_row_y() -> f32 { 0.0 }
     pub unsafe fn ui_texture_load(_: u32, _: u32) -> u32 { 0 }
+    pub unsafe fn ui_texture_load_memory(_: u32, _: u32, _: u32, _: u32) -> u32 { 0 }
     pub unsafe fn ui_texture_unload(_: u32) {}
     pub unsafe fn ui_draw_texture(_: u32, _: f32, _: f32, _: f32, _: f32, _: u32) {}
     pub unsafe fn audio_load(_: u32, _: u32) -> u32 { 0 }
@@ -614,6 +689,9 @@ pub mod stubs {
     pub unsafe fn workspace_read_file(_: u32, _: u32, _: u32, _: u32) -> i32 { 0 }
     pub unsafe fn workspace_write_file(_: u32, _: u32, _: u32, _: u32) -> i32 { 0 }
     pub unsafe fn workspace_find_files(_: u32, _: u32, _: u32, _: u32) -> i32 { 0 }
+    pub unsafe fn workspace_file_exists(_: u32, _: u32) -> u32 { 0 }
+    pub unsafe fn workspace_delete_file(_: u32, _: u32) -> i32 { 0 }
+    pub unsafe fn workspace_mkdir(_: u32, _: u32) -> i32 { 0 }
     pub unsafe fn editor_get_active_path(_: u32, _: u32) -> i32 { 0 }
     pub unsafe fn editor_get_buffer_len() -> i32 { 0 }
     pub unsafe fn editor_get_buffer(_: u32, _: u32) -> i32 { 0 }
@@ -622,6 +700,10 @@ pub mod stubs {
     pub unsafe fn editor_set_cursor(_: i32, _: i32) {}
     pub unsafe fn editor_set_gutter_marker(_: u32, _: u32, _: i32, _: u32, _: u32) {}
     pub unsafe fn editor_clear_gutter_markers(_: u32) {}
+    pub unsafe fn editor_insert_text(_: u32, _: u32) -> i32 { 0 }
+    pub unsafe fn editor_get_selection(_: u32, _: u32) -> i32 { 0 }
+    pub unsafe fn editor_replace_range(_: i32, _: i32, _: i32, _: i32, _: u32, _: u32) -> i32 { 0 }
+    pub unsafe fn editor_save() -> i32 { 0 }
     pub unsafe fn ast_get_symbols(_: u32, _: u32, _: u32, _: u32) -> i32 { 0 }
     pub unsafe fn ast_get_references(_: u32, _: u32, _: u32, _: u32, _: u32, _: u32) -> i32 { 0 }
     pub unsafe fn ast_get_diagnostics(_: u32, _: u32, _: u32, _: u32) -> i32 { 0 }
@@ -631,6 +713,7 @@ pub mod stubs {
     pub unsafe fn proc_read_output(_: u32, _: u32, _: u32, _: u32) -> i32 { 0 }
     pub unsafe fn proc_write_input(_: u32, _: u32, _: u32) -> i32 { 0 }
     pub unsafe fn proc_kill(_: u32) -> i32 { 0 }
+    pub unsafe fn http_fetch(_: u32, _: u32) -> u32 { 0 }
     pub unsafe fn compiler_build(_: u32, _: u32, _: u32, _: u32) -> u32 { 0 }
     pub unsafe fn compiler_get_function_wat(_: u32, _: u32, _: u32, _: u32, _: u32, _: u32) -> i32 { 0 }
     pub unsafe fn debug_toggle_breakpoint(_: u32, _: u32, _: u32) -> u32 { 0 }
